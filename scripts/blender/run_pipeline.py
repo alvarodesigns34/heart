@@ -99,11 +99,19 @@ def render_diagnostics():
         """Planar section of an auxiliary (closed, manifold) mesh, capped with an exact boolean so that
         band-shaped sections (fat sleeves, vessel walls) close correctly. Keeps the side opposite to n."""
         from mathutils import Vector
-        me = o.data.copy()
+        # evaluated copy: keeps the current shape-key pose (e.g. open AV valves)
+        me = bpy.data.meshes.new_from_object(o.evaluated_get(bpy.context.evaluated_depsgraph_get()))
         c = bpy.data.objects.new('CUT_' + o.name, me)
         sc.collection.objects.link(c)
-        if me.shape_keys:
-            c.shape_key_clear()
+        if o.name.startswith(('Valve', 'Chordae')):
+            # thin leaflets touch themselves along the coaptation line: an exact boolean would drop
+            # them, a plain bisection is enough for sub-millimetre sheets
+            bm = bmesh.new()
+            bm.from_mesh(me)
+            bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=p, plane_no=n, clear_outer=True)
+            bm.to_mesh(me)
+            bm.free()
+            return c
         box = bpy.data.objects.new('CUT_box', bpy.data.meshes.new('CUT_box'))
         bm = bmesh.new()
         bmesh.ops.create_cube(bm, size=1.0)

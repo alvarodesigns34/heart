@@ -7,6 +7,12 @@ y disección real con *stencil cap*.
 
 **Demo:** https://alvarodesigns34.github.io/heart/
 
+| Anterior | Posterior | Corte de cuatro cámaras | Plano valvular |
+|---|---|---|---|
+| ![Vista anterior](docs/renders/diag_01_anterior.jpg) | ![Vista posterior](docs/renders/diag_02_posterior.jpg) | ![Corte de cuatro cámaras](docs/renders/diag_03_cutaway_4chambers.jpg) | ![Plano valvular](docs/renders/diag_04_valves_closeup.jpg) |
+
+*Renders diagnósticos generados por `run_pipeline.py` (Cycles, 1024², 96 muestras).*
+
 ---
 
 ## Pipeline de Blender (`scripts/blender/`)
