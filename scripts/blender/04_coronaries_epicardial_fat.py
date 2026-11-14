@@ -249,11 +249,19 @@ def rca_near(P):
     return rca['S'][int(np.argmin(np.linalg.norm(rca['S'] - np.asarray(P)[None, :], axis=1)))]
 
 
-for nm, psi, r, t1, dpsi in (('rv_anterior_branch', -22, 0.075, 3.0, -10), ('acute_marginal', 30, 0.105, 5.6, -6),
-                             ('acute_marginal_2', 52, 0.07, 3.4, 4), ('rv_anterior_branch_2', 6, 0.06, 2.2, -8)):
-    way = [rv_free(rad(psi + dpsi * k), 0.25 + (t1 - 0.25) * k, -RV_WALL - 0.02) for k in (0.0, 0.25, 0.5, 0.75, 1.0)]
+# RV free-wall branches fan out obliquely towards the apex with a gentle S-shaped course
+for nm, psi, r, t1, dpsi, bend in (('rv_anterior_branch', -20, 0.075, 3.2, -26, 9), ('acute_marginal', 30, 0.105, 5.7, -20, -7),
+                                   ('acute_marginal_2', 54, 0.07, 3.6, 10, 6), ('rv_anterior_branch_2', 4, 0.06, 2.4, 16, -8)):
+    ks = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+    way = [rv_free(rad(psi + dpsi * k ** 1.3 + bend * math.sin(math.pi * k * 1.4)), 0.25 + (t1 - 0.25) * k, -RV_WALL - 0.02) for k in ks]
     way[0] = rca_near(way[0])
-    vessel(nm, 'art', way, r, 0.04, wiggle=0.05, wl=1.8)
+    v_ = vessel(nm, 'art', way, r, 0.04, wiggle=0.085, wl=1.15)
+    for f, sgn in ((0.42, 1), (0.66, -1)) if r > 0.065 else ((0.55, 1),):     # small second-order twigs
+        q0 = at(v_, f)
+        s_, d_, t_ = W2L(q0)
+        ps = math.atan2(d_ - RV_DELTA0, s_ - float(rv_c(max(t_, 0.3))))
+        tw = [q0] + [rv_free(ps + sgn * rad(18) * k, max(t_, 0.3) + 1.3 * k, -RV_WALL - 0.02) for k in (0.5, 1.0)]
+        vessel(nm + '_twig_%d' % int(f * 100), 'art', tw, 0.042, 0.03, wiggle=0.05, wl=0.8)
 log('right coronary artery')
 
 # ----------------------------------------------------------------------------------------
@@ -278,10 +286,11 @@ vessel('posterior_vein_LV', 'vein', [lv_epi(ph0 + rad(6), 5.2, 0.05), lv_epi(ph0
 om_v = NAMED['obtuse_marginal_1']
 omP = np.array(om_v['P'])[::-1]
 vessel('left_marginal_vein', 'vein', np.concatenate([project(omP)[2::2], [at(gcv2, 0.45)]]), 0.05, 0.12, side=0.22)
-for nm, psi in (('anterior_cardiac_vein_1', -8), ('anterior_cardiac_vein_2', 18)):
-    way = [rv_free(rad(psi - 6), 3.6, -RV_WALL), rv_free(rad(psi - 3), 2.2, -RV_WALL), rv_free(rad(psi), 1.0, -RV_WALL)]
+for nm, psi in (('anterior_cardiac_vein_1', -6), ('anterior_cardiac_vein_2', 20)):
+    way = [rv_free(rad(psi - 16), 3.8, -RV_WALL), rv_free(rad(psi + 4), 2.6, -RV_WALL), rv_free(rad(psi - 5), 1.5, -RV_WALL),
+           rv_free(rad(psi), 0.7, -RV_WALL)]
     way.append(rca_near(rv_free(rad(psi), 0.25, -RV_WALL)))
-    vessel(nm, 'vein', way, 0.045, 0.085, wiggle=0.04, wl=1.6, side=0.1)
+    vessel(nm, 'vein', way, 0.045, 0.085, wiggle=0.07, wl=1.3, side=0.1)
 log('cardiac veins')
 
 

@@ -20,7 +20,7 @@ def _fields():
         W = {}
         for name, ids in (('vent', (1, 2)), ('atr', (3, 4)), ('aorta', (5,)), ('pa', (6,)), ('cava', (7,)),
                           ('pvein', (8,)), ('lig', (9,)), ('rv', (2,)), ('la', (4,))):
-            W[name] = ndi.gaussian_filter(np.isin(reg, ids).astype(np.float32), 1.3)
+            W[name] = ndi.gaussian_filter(np.isin(reg, ids).astype(np.float32), 3.2)
         _cache['f'] = (g, W, fd['blood'].astype(np.float32))
     return _cache['f']
 

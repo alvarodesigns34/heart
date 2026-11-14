@@ -65,7 +65,7 @@ def render_diagnostics():
     import bmesh
     import numpy as np
     from heartlib import (Grid, load, bpath, half_space, extract_surface, mesh_from_arrays, L2W, unit, A_AX, D_AX,
-                          log, mesh_arrays)
+                          log, mesh_arrays, AO_C, AO_N, PV_C, PV_N)
     import heartmat as hm
 
     os.makedirs(RENDER_DIR, exist_ok=True)
@@ -107,15 +107,23 @@ def render_diagnostics():
         res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=p, plane_no=n, clear_outer=True)
         edges = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge)]
         if edges:
-            try:
-                bmesh.ops.triangle_fill(bm, edges=edges, use_beauty=True)
-            except Exception:
-                pass
+            # close each section loop with a proper n-gon (then triangulated) instead of a cross-hatched fill
+            bmesh.ops.holes_fill(bm, edges=edges, sides=0)
+            bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
         bm.to_mesh(me)
         bm.free()
         return c
 
-    def shot(name, view_dir, center, scale=None, cut=None, lens=85.0, av=0.0, sl=0.0):
+    def root_keep(X, Y, Z, C, n, below, above, r):
+        """SDF-ish field, negative inside a capped cylinder around an arterial root."""
+        C = [float(v) for v in C]
+        n = unit(n)
+        qx, qy, qz = X - C[0], Y - C[1], Z - C[2]
+        h = qx * float(n[0]) + qy * float(n[1]) + qz * float(n[2])
+        rad = np.sqrt(np.maximum(qx * qx + qy * qy + qz * qz - h * h, 0))
+        return np.maximum(np.maximum(rad - r, h - above), -h - below)
+
+    def shot(name, view_dir, center, scale=None, cut=None, lens=85.0, av=0.0, sl=0.0, keep_roots=False):
         nonlocal S
         clear_rig()
         for o in aux:
@@ -131,12 +139,20 @@ def render_diagnostics():
             if S is None:
                 S = load('solid02')
             X, Y, Z = g.coords(tuple(slice(None) for _ in range(3)))
-            v, f, _ = extract_surface(g, np.maximum(S, half_space(X, Y, Z, p, n)))
+            R = half_space(X, Y, Z, p, n)
+            if keep_roots:      # classic valve-plane preparation: atria removed, arterial roots preserved
+                R = np.minimum(R, root_keep(X, Y, Z, AO_C, AO_N, 3.0, 1.42, 1.95))
+                R = np.minimum(R, root_keep(X, Y, Z, PV_C, PV_N, 3.0, 1.32, 1.85))
+            v, f, _ = extract_surface(g, np.maximum(S, R))
+            del R
             c = mesh_from_arrays('CUT_Heart', v, f)
             hm.heart_attributes(c, cut=(p, n))
             hm.assign(c, mats['heart'])
             heart.hide_render = True
             for o in aux:
+                if keep_roots and o.name.startswith(('Valve', 'Chordae')):
+                    o.hide_render = False          # the whole valvular apparatus stays in place
+                    continue
                 o.hide_render = True
                 cc = cut_copy(o, p, n)
                 hm.assign(cc, hm.material_for(o.name, mats))
@@ -151,9 +167,11 @@ def render_diagnostics():
         shot('diag_02_posterior', (-0.08, 1.0, 0.16), (0.35, 0.5, 3.3), lens=92)
     if '3' in VIEWS:
         vd = unit(-D_AX * 0.6 + np.array([0.0, -0.75, 0.1]))
-        shot('diag_03_cutaway_4chambers', tuple(vd), tuple(L2W(1.4, 0.0, 2.2)), scale=15.5, cut=(L2W(0, -0.2, 0), vd), av=0.85)
+        shot('diag_03_cutaway_4chambers', tuple(vd), tuple(L2W(1.3, 0.0, 1.5) + np.array([0, 0, 0.6])), scale=17.0, cut=(L2W(0, -0.2, 0), vd), av=0.85)
     if '4' in VIEWS:
-        shot('diag_04_valves_closeup', tuple(-A_AX), tuple(L2W(1.7, -1.25, -0.9)), scale=10.6, cut=(L2W(0, 0, -0.78), -A_AX))
+        vd = unit(-A_AX + 0.12 * np.array([0.0, -1.0, 0.0]))
+        shot('diag_04_valves_closeup', tuple(vd), tuple(L2W(1.7, -1.4, -1.0)), scale=10.4, cut=(L2W(0, 0, -0.62), -A_AX),
+             keep_roots=True)
 
 
 if __name__ == '__main__':

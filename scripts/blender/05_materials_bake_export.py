@@ -410,9 +410,6 @@ meta = dict(
     valves={k.lower(): dict(center=glv(c), normal=[round(float(v), 5) for v in (n[0], n[2], -n[1])])
             for k, c, n in (('mitral', MV_C, MV_N), ('tricuspid', TV_C, TV_N), ('aortic', AO_C, AO_N), ('pulmonary', PV_C, PV_N))},
     pins=PINS, routes=ROUTES)
-with open(os.path.join(OUT_DIR, 'heart_meta.json'), 'w') as f:
-    json.dump(meta, f, separators=(',', ':'))
-
 opt = os.path.join(ROOT, 'scripts', 'optimize-glb.mjs')
 final = os.path.join(OUT_DIR, 'human_heart.glb')
 if os.path.exists(os.path.join(ROOT, 'node_modules', '@gltf-transform')) and os.path.exists(opt):
@@ -420,4 +417,8 @@ if os.path.exists(os.path.join(ROOT, 'node_modules', '@gltf-transform')) and os.
     log('final glb: %.1f MB' % (os.path.getsize(final) / 1e6))
 else:
     log('node_modules missing: run `npm install && node scripts/optimize-glb.mjs %s %s`' % (raw, final))
+meta['glb_bytes'] = os.path.getsize(final) if os.path.exists(final) else 0
+with open(os.path.join(OUT_DIR, 'heart_meta.json'), 'w') as f:
+    json.dump(meta, f, separators=(',', ':'))
+
 log('stage 05 complete')

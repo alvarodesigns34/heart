@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#07080b" />
+    <title>Corazón humano · atlas vivo 3D</title>
+    <meta name="description" content="Corazón humano adulto en 3D: anatomía completa, ciclo cardíaco fisiológico con ECG y fonocardiograma sincronizados, flujo sanguíneo y disección interactiva." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2307080b'/%3E%3Cpath d='M3 17h6l2-5 3 11 3-16 3 13 2-3h7' fill='none' stroke='%23b4e36b' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene" aria-label="Modelo tridimensional interactivo del corazón humano"></canvas>
+      <div id="pins"></div>
+
+      <header class="masthead">
+        <p class="eyebrow">Atlas vivo · adulto · 300 g</p>
+        <h1>Corazón <em>humano</em></h1>
+      </header>
+
+      <button class="drawer-toggle" id="drawer-toggle" type="button" aria-expanded="false" aria-controls="panel-left">Capas y disección</button>
+
+      <aside class="panel panel--left" id="panel-left" aria-label="Capas y disección">
+        <section class="group">
+          <h2 class="eyebrow">Capas</h2>
+          <div class="row row--stack">
+            <span class="row__name">Miocardio</span>
+            <div class="seg" role="radiogroup" aria-label="Miocardio" id="myo-mode">
+              <button type="button" role="radio" aria-checked="true" data-mode="solid">Sólido</button>
+              <button type="button" role="radio" aria-checked="false" data-mode="xray">Translúcido</button>
+              <button type="button" role="radio" aria-checked="false" data-mode="hidden">Oculto</button>
+            </div>
+          </div>
+          <label class="row"><span class="row__name">Grasa epicárdica</span><input class="switch" type="checkbox" data-layer="fat" checked /></label>
+          <label class="row"><span class="row__name">Árbol coronario</span><input class="switch" type="checkbox" data-layer="coronary" checked /></label>
+          <label class="row"><span class="row__name">Válvulas y cuerdas</span><input class="switch" type="checkbox" data-layer="valves" checked /></label>
+          <label class="row"><span class="row__name">Flujo sanguíneo <i class="key key--oxy"></i><i class="key key--deoxy"></i></span><input class="switch" type="checkbox" data-layer="flow" checked /></label>
+          <label class="row"><span class="row__name">Pines anatómicos</span><input class="switch" type="checkbox" data-layer="pins" checked /></label>
+        </section>
+
+        <section class="group">
+          <h2 class="eyebrow">Disección</h2>
+          <div class="plane" data-plane="coronal">
+            <label class="row"><span class="row__name">Coronal <small>cuatro cámaras</small></span><input class="switch" type="checkbox" /></label>
+            <div class="plane__ctl"><input type="range" min="-55" max="55" value="0" step="1" aria-label="Posición del plano coronal" /><output>0 mm</output><button type="button" class="flip" aria-pressed="false" title="Invertir el lado conservado">Invertir</button></div>
+          </div>
+          <div class="plane" data-plane="sagittal">
+            <label class="row"><span class="row__name">Sagital</span><input class="switch" type="checkbox" /></label>
+            <div class="plane__ctl"><input type="range" min="-55" max="55" value="0" step="1" aria-label="Posición del plano sagital" /><output>0 mm</output><button type="button" class="flip" aria-pressed="false" title="Invertir el lado conservado">Invertir</button></div>
+          </div>
+          <div class="plane" data-plane="transverse">
+            <label class="row"><span class="row__name">Transversal <small>eje corto</small></span><input class="switch" type="checkbox" /></label>
+            <div class="plane__ctl"><input type="range" min="-30" max="78" value="33" step="1" aria-label="Posición del plano transversal" /><output>33 mm</output><button type="button" class="flip" aria-pressed="false" title="Invertir el lado conservado">Invertir</button></div>
+          </div>
+        </section>
+      </aside>
+
+      <aside class="panel panel--right" aria-label="Vistas">
+        <section class="group">
+          <h2 class="eyebrow">Vistas</h2>
+          <div class="chips" id="views">
+            <button type="button" data-view="anterior" class="is-active">Anterior</button>
+            <button type="button" data-view="posterior">Posterior</button>
+            <button type="button" data-view="left">Lateral izq.</button>
+            <button type="button" data-view="right">Lateral der.</button>
+            <button type="button" data-view="superior">Base</button>
+            <button type="button" data-view="inferior">Diafragmática</button>
+            <button type="button" data-view="apex">Ápex</button>
+          </div>
+        </section>
+        <section class="group">
+          <h2 class="eyebrow">Preparaciones</h2>
+          <div class="chips" id="presets">
+            <button type="button" data-preset="whole" class="is-active">Íntegro</button>
+            <button type="button" data-preset="four">Cuatro cámaras</button>
+            <button type="button" data-preset="short">Eje corto</button>
+            <button type="button" data-preset="valves">Plano valvular</button>
+            <button type="button" data-preset="vessels">Coronarias</button>
+          </div>
+        </section>
+      </aside>
+
+      <article class="card" id="card" hidden>
+        <button type="button" class="card__close" id="card-close" aria-label="Cerrar ficha">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" /></svg>
+        </button>
+        <p class="eyebrow" id="card-layer"></p>
+        <h3 id="card-title"></h3>
+        <p id="card-desc"></p>
+        <button type="button" class="link" id="card-focus">Centrar en la estructura</button>
+      </article>
+
+      <footer class="monitor" aria-label="Monitor cardíaco">
+        <div class="monitor__rate">
+          <div class="rate"><output id="bpm">72</output><span>lpm</span></div>
+          <input id="bpm-range" type="range" min="40" max="180" value="72" step="1" aria-label="Frecuencia cardíaca" />
+        </div>
+        <div class="monitor__trace">
+          <span class="trace__tag">II</span>
+          <canvas id="ecg" aria-label="Electrocardiograma en vivo"></canvas>
+        </div>
+        <div class="monitor__phase">
+          <p class="phase" id="phase">Diástasis</p>
+          <dl class="vitals">
+            <div><dt>VI</dt><dd><span id="vol">120</span> mL</dd></div>
+            <div><dt>AV</dt><dd id="av-state">abiertas</dd></div>
+            <div><dt>Sigm.</dt><dd id="sl-state">cerradas</dd></div>
+          </dl>
+        </div>
+        <div class="monitor__ctl">
+          <button type="button" class="icon-btn" id="play" aria-label="Pausar el latido" aria-pressed="false">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path class="i-pause" d="M4.5 3v10M11.5 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" /><path class="i-play" d="M5 3l8 5-8 5z" fill="currentColor" /></svg>
+          </button>
+          <div class="seg seg--tight" role="radiogroup" aria-label="Velocidad" id="speed">
+            <button type="button" role="radio" aria-checked="true" data-speed="1">1×</button>
+            <button type="button" role="radio" aria-checked="false" data-speed="0.5">½</button>
+            <button type="button" role="radio" aria-checked="false" data-speed="0.2">⅕</button>
+          </div>
+          <button type="button" class="icon-btn" id="sound" aria-pressed="false" aria-label="Sonido cardíaco" title="Ruidos cardíacos S1 / S2">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2z" fill="currentColor" /><path class="i-wave" d="M10.5 5.5a3.5 3.5 0 010 5M12.5 3.5a6.3 6.3 0 010 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none" /><path class="i-mute" d="M11 6l3.5 4M14.5 6L11 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none" /></svg>
+          </button>
+          <button type="button" class="icon-btn" id="beep" aria-pressed="false" aria-label="Pitido del monitor" title="Pitido del monitor en cada onda R">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1 9h3l1.5-3 2 6 2-9 1.5 6H15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none" /></svg>
+          </button>
+        </div>
+      </footer>
+
+      <div class="loader" id="loader" role="status" aria-live="polite">
+        <div class="loader__inner">
+          <p class="eyebrow">Preparando la pieza anatómica</p>
+          <p class="loader__pct"><span id="loader-pct">0</span><small>%</small></p>
+          <div class="loader__bar"><i id="loader-bar"></i></div>
+          <p class="loader__note" id="loader-note">Descargando geometría y texturas</p>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
