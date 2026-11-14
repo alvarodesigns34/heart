@@ -75,7 +75,9 @@ export class Pins {
     list.sort((a, b) => (a === this.selected ? -1 : b === this.selected ? 1 : a.depth - b.depth));
     for (const it of list) {
       if (!it.w) it.w = it.el.querySelector('.pin__label').offsetWidth + 22;
-      const right = it.sx < width * 0.5 ? false : true;
+      let right = it.sx >= width * 0.5;                     // labels point outwards...
+      if (right && it.sx + it.w + 8 > width) right = false;  // ...unless they would leave the screen
+      else if (!right && it.sx - it.w - 8 < 0) right = true;
       const x0 = right ? it.sx + 6 : it.sx - it.w - 6;
       const rect = [x0, it.sy - 11, x0 + it.w, it.sy + 11];
       let ok = (this.labelMode === 'all' && placed.length < maxLabels) || it === this.selected;

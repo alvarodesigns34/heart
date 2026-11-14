@@ -96,23 +96,42 @@ def render_diagnostics():
                 bpy.data.objects.remove(o, do_unlink=True)
 
     def cut_copy(o, p, n):
-        """Planar section of an auxiliary mesh (keeps the side opposite to n), capped."""
+        """Planar section of an auxiliary (closed, manifold) mesh, capped with an exact boolean so that
+        band-shaped sections (fat sleeves, vessel walls) close correctly. Keeps the side opposite to n."""
+        from mathutils import Vector
         me = o.data.copy()
         c = bpy.data.objects.new('CUT_' + o.name, me)
         sc.collection.objects.link(c)
         if me.shape_keys:
             c.shape_key_clear()
+        box = bpy.data.objects.new('CUT_box', bpy.data.meshes.new('CUT_box'))
         bm = bmesh.new()
-        bm.from_mesh(me)
-        res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=p, plane_no=n, clear_outer=True)
-        edges = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge)]
-        if edges:
-            # close each section loop with a proper n-gon (then triangulated) instead of a cross-hatched fill
-            bmesh.ops.holes_fill(bm, edges=edges, sides=0)
-            bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
-        bm.to_mesh(me)
+        bmesh.ops.create_cube(bm, size=1.0)
+        bm.to_mesh(box.data)
         bm.free()
+        sc.collection.objects.link(box)
+        nn = Vector(unit(n))
+        box.scale = (80.0, 80.0, 80.0)
+        box.location = Vector(p) + nn * 40.0
+        box.rotation_euler = nn.to_track_quat('Z', 'Y').to_euler()
+        m = c.modifiers.new('cut', 'BOOLEAN')
+        m.operation = 'DIFFERENCE'
+        m.solver = 'EXACT'
+        m.object = box
+        for x in sc.objects:
+            x.select_set(x == c)
+        bpy.context.view_layer.objects.active = c
+        bpy.ops.object.modifier_apply(modifier='cut')
+        bpy.data.objects.remove(box, do_unlink=True)
         return c
+
+    def flat_section(ob, p, n, tol=2e-3):
+        """Flat-shade the section faces (on the cut plane): smooth normals there produce radial streaks."""
+        V = mesh_arrays(ob)
+        on = np.abs((V - np.asarray(p, float)) @ np.asarray(n, float)) < tol
+        for poly in ob.data.polygons:
+            if all(on[i] for i in poly.vertices):
+                poly.use_smooth = False
 
     def root_keep(X, Y, Z, C, n, below, above, r):
         """SDF-ish field, negative inside a capped cylinder around an arterial root."""
@@ -154,8 +173,13 @@ def render_diagnostics():
                     o.hide_render = False          # the whole valvular apparatus stays in place
                     continue
                 o.hide_render = True
-                cc = cut_copy(o, p, n)
+                # interpenetrating tissues (fat partially buries the vessels and sits 0.6 mm into the
+                # myocardium): stagger their section planes so the caps never z-fight
+                off = 0.012 if o.name.startswith('Coronary') else (-0.015 if o.name == 'Epicardial_Fat' else 0.0)
+                pc = p + off * n
+                cc = cut_copy(o, pc, n)
                 hm.assign(cc, hm.material_for(o.name, mats))
+                flat_section(cc, pc, n)
         hm.camera_rig(sc, view_dir, center, ortho_scale=scale, lens=lens)
         sc.render.filepath = os.path.join(RENDER_DIR, name + '.png')
         bpy.ops.render.render(write_still=True)

@@ -431,6 +431,29 @@ if len(ff) > target:
     m.ratio = target / len(ff)
     bpy.ops.object.modifier_apply(modifier='dec')
 
+def clean_mesh(ob):
+    """Remove degenerate / duplicate geometry left by remeshing + decimation, triangulate, validate."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    bmesh.ops.dissolve_degenerate(bm, edges=bm.edges, dist=1e-5)
+    bmesh.ops.triangulate(bm, faces=bm.faces)
+    loose = [v for v in bm.verts if not v.link_faces]
+    if loose:
+        bmesh.ops.delete(bm, geom=loose, context='VERTS')
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(ob.data)
+    bm.free()
+    fixed = ob.data.validate(verbose=False, clean_customdata=True)
+    for p in ob.data.polygons:
+        p.use_smooth = True
+    log('cleaned %s: %d tris%s' % (ob.name, len(ob.data.polygons), ' (validate fixed residual issues)' if fixed else ''))
+
+
+for nm in ('Coronary_Arteries', 'Coronary_Veins', 'Epicardial_Fat'):
+    clean_mesh(bpy.data.objects[nm])
+
 NAMED['_ostia'] = dict(left=OST_L.tolist(), right=OST_R.tolist(), crux=CRUX.tolist())
 save_json('landmarks04', NAMED)
 bpy.ops.wm.save_as_mainfile(filepath=bpath('stage04.blend'))
